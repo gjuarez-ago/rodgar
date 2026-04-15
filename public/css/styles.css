@@ -341,19 +341,26 @@
       text-transform: uppercase;
     }
 
-    .nav-social-mobile {
-      display: none;
+    .nav-facebook-btn {
+      display: flex;
       width: 36px;
       height: 36px;
       align-items: center;
       justify-content: center;
-      font-size: 1.1rem;
+      font-size: 1rem;
       color: #fff;
       text-decoration: none;
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 50%;
       background: rgba(255, 255, 255, 0.05);
-      margin-right: 8px;
+      margin-right: 12px;
+      transition: all 0.3s ease;
+    }
+
+    .nav-facebook-btn:hover {
+      background: var(--gold);
+      border-color: var(--gold);
+      color: var(--primary);
     }
 
     .nav-hamburger {
