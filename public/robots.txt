@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://rodgar.com.mx/sitemap.xml
