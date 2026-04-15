@@ -1,4 +1,4 @@
-// ── Budget range
+﻿// â”€â”€ Budget range
 function updateBudget(v) {
   const n = parseInt(v);
   let d;
@@ -8,7 +8,7 @@ function updateBudget(v) {
   document.getElementById('budget-val').textContent = d;
 }
 
-// ── Toast
+// â”€â”€ Toast
 function showToast(title, msg) {
   const t = document.getElementById('toast');
   document.getElementById('toast-title').textContent = title;
@@ -17,27 +17,122 @@ function showToast(title, msg) {
   setTimeout(() => t.classList.remove('show'), 5500);
 }
 
-// ── Form handlers
-function handleCot(e) {
+// â”€â”€ Form handlers
+const LEAD_API_ENDPOINT = '/api/leads';
+const LEAD_QUEUE_KEY = 'rodgar_pending_leads';
+
+async function handleCot(e) {
   e.preventDefault();
-  showToast('¡Solicitud Enviada!', 'Un ingeniero especialista revisará su proyecto y le contactará en menos de 48h hábiles.');
-  e.target.reset();
+  const form = e.target;
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
+  }
+
+  const data = new FormData(form);
+  const servicios = data.getAll('servicios');
+  const presupuestoTexto = document.getElementById('budget-val')?.textContent?.trim() || '';
+
+  const payload = {
+    formType: 'cotizacion',
+    source: 'web_form_cotizacion',
+    submittedAt: new Date().toISOString(),
+    data: {
+      nombre: safeValue(data.get('nombre')),
+      empresa: safeValue(data.get('empresa')),
+      correo: safeValue(data.get('correo')),
+      telefono: safeValue(data.get('telefono')),
+      tipoProyecto: safeValue(data.get('tipo_proyecto')),
+      ciudadEstado: safeValue(data.get('ciudad_estado')),
+      presupuestoEstimado: safeValue(presupuestoTexto),
+      plazoInicio: safeValue(data.get('plazo_inicio')),
+      serviciosRequeridos: servicios.length ? servicios : [],
+      descripcionProyecto: safeValue(data.get('descripcion_proyecto')),
+      origen: safeValue(data.get('origen'))
+    }
+  };
+
+  const sent = await submitLeadToApi(payload);
+  if (sent) {
+    showToast('Solicitud registrada', 'Tus datos fueron enviados correctamente para seguimiento.');
+  } else {
+    showToast('Solicitud registrada en espera', 'Tus datos quedaron guardados y se enviaran al restablecer conexiÃ³n.');
+  }
+
+  form.reset();
   document.getElementById('budget-val').textContent = '$500,000 MXN';
   document.getElementById('budget-range').value = 500000;
 }
-function handleContact(e) {
+
+async function handleContact(e) {
   e.preventDefault();
-  showToast('¡Mensaje Recibido!', 'Nuestro equipo responderá su consulta en menos de 24h hábiles.');
-  e.target.reset();
+  const form = e.target;
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
+  }
+
+  const data = new FormData(form);
+  const payload = {
+    formType: 'contacto',
+    source: 'web_form_contacto',
+    submittedAt: new Date().toISOString(),
+    data: {
+      nombre: safeValue(data.get('nombre')),
+      empresa: safeValue(data.get('empresa')),
+      correo: safeValue(data.get('correo')),
+      telefono: safeValue(data.get('telefono')),
+      asunto: safeValue(data.get('asunto')),
+      mensaje: safeValue(data.get('mensaje'))
+    }
+  };
+
+  const sent = await submitLeadToApi(payload);
+  if (sent) {
+    showToast('Mensaje registrado', 'Tus datos fueron enviados correctamente para seguimiento.');
+  } else {
+    showToast('Mensaje registrado en espera', 'Tus datos quedaron guardados y se enviaran al restablecer conexiÃ³n.');
+  }
+
+  form.reset();
 }
 
-// ── Nav scroll effect
+function safeValue(v) {
+  const text = (v || '').toString().trim();
+  return text || 'No especificado';
+}
+
+async function submitLeadToApi(payload) {
+  try {
+    const res = await fetch(LEAD_API_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error('API unavailable');
+    return true;
+  } catch (err) {
+    queuePendingLead(payload);
+    return false;
+  }
+}
+
+function queuePendingLead(payload) {
+  try {
+    const current = JSON.parse(localStorage.getItem(LEAD_QUEUE_KEY) || '[]');
+    current.push(payload);
+    localStorage.setItem(LEAD_QUEUE_KEY, JSON.stringify(current));
+  } catch (err) {
+    // Ignorar errores de almacenamiento para no romper UX.
+  }
+}
+// â”€â”€ Nav scroll effect
 const nav = document.getElementById('main-nav');
 window.addEventListener('scroll', () => {
   nav.classList.toggle('scrolled', window.scrollY > 20);
 });
 
-// ── Active nav links
+// â”€â”€ Active nav links
 const allSections = document.querySelectorAll('section[id], [id="metrics"], [id="cta-band"]');
 const navAs = document.querySelectorAll('.nav-links a');
 window.addEventListener('scroll', () => {
@@ -50,7 +145,7 @@ window.addEventListener('scroll', () => {
   });
 }, { passive: true });
 
-// ── Smooth scroll
+// â”€â”€ Smooth scroll
 document.querySelectorAll('a[href^="#"]').forEach(a => {
   a.addEventListener('click', e => {
     const tgt = document.querySelector(a.getAttribute('href'));
@@ -58,15 +153,15 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
   });
 });
 
-// ── Reveal on scroll
+// â”€â”€ Reveal on scroll
 const ro = new IntersectionObserver((entries) => {
   entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
 }, { threshold: 0.07 });
 document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.observe(el));
 
-// ══════════════════════════════════════════════════
-// ══  CARRUSEL DE PORTAFOLIO — Responsivo + Touch
-// ══════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•â•  CARRUSEL DE PORTAFOLIO â€” Responsivo + Touch
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 (function initCarousel() {
   const track = document.getElementById('carousel-track');
@@ -83,13 +178,13 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
   let autoPlayTimer = null;
   const AUTO_PLAY_INTERVAL = 5000;
 
-  // ── Calcular ancho de cada slide según CSS flex-basis
+  // â”€â”€ Calcular ancho de cada slide segÃºn CSS flex-basis
   function calcSlideWidth() {
     if (!slides[0]) return;
     slideWidth = slides[0].offsetWidth + parseInt(getComputedStyle(slides[0]).paddingRight || 0);
   }
 
-  // ── Mover al slide indicado
+  // â”€â”€ Mover al slide indicado
   function goToSlide(index, smooth = true) {
     if (index < 0) index = totalSlides - 1;
     if (index >= totalSlides) index = 0;
@@ -104,7 +199,7 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
     updateUI();
   }
 
-  // ── Actualizar contador, dots, estado de flechas
+  // â”€â”€ Actualizar contador, dots, estado de flechas
   function updateUI() {
     // Contador
     const display = String(currentIndex + 1).padStart(2, '0');
@@ -116,7 +211,7 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
     });
   }
 
-  // ── Generar dots
+  // â”€â”€ Generar dots
   function buildDots() {
     dotsContainer.innerHTML = '';
     for (let i = 0; i < totalSlides; i++) {
@@ -131,7 +226,7 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
     }
   }
 
-  // ── Auto-play
+  // â”€â”€ Auto-play
   function startAutoPlay() {
     stopAutoPlay();
     autoPlayTimer = setInterval(() => {
@@ -151,7 +246,7 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
     startAutoPlay();
   }
 
-  // ── Flechas
+  // â”€â”€ Flechas
   prevBtn.addEventListener('click', () => {
     goToSlide(currentIndex - 1);
     resetAutoPlay();
@@ -162,9 +257,9 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
     resetAutoPlay();
   });
 
-  // ── Soporte teclado
+  // â”€â”€ Soporte teclado
   document.addEventListener('keydown', (e) => {
-    // Solo si la sección de portafolio está visible en el viewport
+    // Solo si la secciÃ³n de portafolio estÃ¡ visible en el viewport
     const section = document.getElementById('portafolio');
     const rect = section.getBoundingClientRect();
     if (rect.top > window.innerHeight || rect.bottom < 0) return;
@@ -173,7 +268,7 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
     if (e.key === 'ArrowRight') { goToSlide(currentIndex + 1); resetAutoPlay(); }
   });
 
-  // ── Drag / Touch (swipe para mobile y desktop)
+  // â”€â”€ Drag / Touch (swipe para mobile y desktop)
   let isDragging = false;
   let startX = 0;
   let currentTranslate = 0;
@@ -205,7 +300,7 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
     track.classList.remove('is-dragging');
 
     const movedBy = currentTranslate - prevTranslate;
-    // Si arrastró más del 20% del ancho del slide, cambiar
+    // Si arrastrÃ³ mÃ¡s del 20% del ancho del slide, cambiar
     const threshold = slideWidth * 0.2;
 
     if (movedBy < -threshold) {
@@ -231,14 +326,14 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
   viewport.addEventListener('touchmove', dragMove, { passive: true });
   viewport.addEventListener('touchend', dragEnd);
 
-  // Prevenir drag de imágenes
+  // Prevenir drag de imÃ¡genes
   track.addEventListener('dragstart', e => e.preventDefault());
 
-  // ── Pausar auto-play cuando el mouse está encima
+  // â”€â”€ Pausar auto-play cuando el mouse estÃ¡ encima
   viewport.addEventListener('mouseenter', stopAutoPlay);
   viewport.addEventListener('mouseleave', startAutoPlay);
 
-  // ── Recalcular en resize
+  // â”€â”€ Recalcular en resize
   let resizeTimer;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
@@ -247,7 +342,7 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
     }, 150);
   });
 
-  // ── Inicializar
+  // â”€â”€ Inicializar
   buildDots();
   calcSlideWidth();
   goToSlide(0, false);
@@ -255,9 +350,9 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
 })();
 
 
-// ══════════════════════════════════════════════════════════════
-// ══  RODGAR AI CHATBOT — Flujo conversacional con recopilación
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•â•  RODGAR AI CHATBOT â€” Flujo conversacional con recopilaciÃ³n
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 const chatbotLauncher = document.getElementById('chatbot-launcher');
 const chatbotWindow = document.getElementById('chatbot-window');
@@ -267,12 +362,12 @@ const chatForm = document.getElementById('chat-form');
 const chatCloseBtn = document.getElementById('chat-close');
 const chatbotBadge = document.getElementById('chatbot-badge');
 
-// ── Botón cerrar chatbot
+// â”€â”€ BotÃ³n cerrar chatbot
 chatCloseBtn.addEventListener('click', () => {
   chatbotWindow.classList.remove('active');
 });
 
-// ── Datos del lead que se van recopilando en la conversación
+// â”€â”€ Datos del lead que se van recopilando en la conversaciÃ³n
 let leadData = {
   nombre: null,
   telefono: null,
@@ -282,83 +377,36 @@ let leadData = {
   timestamp: null
 };
 
-// ── Estado actual del flujo conversacional
+// â”€â”€ Estado actual del flujo conversacional
 // Estados posibles: 'idle' | 'asking_name' | 'asking_phone' | 'asking_email'
 //                 | 'asking_project_type' | 'asking_description' | 'completed'
 let chatState = 'idle';
 
-// ── Flag para saber si ya se abrió antes
+// â”€â”€ Flag para saber si ya se abriÃ³ antes
 let firstOpen = true;
 
-// ── Base de conocimiento para preguntas frecuentes
-const KNOWLEDGE_BASE = [
-  {
-    keywords: ['experiencia', 'años', 'tiempo', 'trayectoria', 'historia'],
-    response: '🏗️ Contamos con <strong>10 años de experiencia en obra civil</strong> y <strong>2 años en arquitectura</strong>. Nuestra trayectoria nos respalda con múltiples proyectos entregados exitosamente en tiempo y forma.'
-  },
-  {
-    keywords: ['servicio', 'servicios', 'hacen', 'ofrecen', 'realizan'],
-    response: '📋 Nuestros servicios incluyen:<br>• Obra civil residencial y comercial<br>• Diseño arquitectónico<br>• Cálculo estructural<br>• Supervisión de obra<br>• Consultoría técnica y planos<br>• Remodelaciones y ampliaciones<br><br>¿Te gustaría cotizar alguno de estos servicios?'
-  },
-  {
-    keywords: ['costo', 'precio', 'cotiz', 'presupu', 'cuanto', 'cuánto', 'cobran'],
-    response: '💰 Cada proyecto es único, por lo que nuestras cotizaciones son personalizadas y <strong>completamente gratuitas</strong>. Preparamos una propuesta técnica y económica detallada en menos de <strong>48 horas</strong>. ¿Te gustaría que preparemos una cotización para tu proyecto?'
-  },
-  {
-    keywords: ['ubicaci', 'donde', 'dónde', 'zona', 'ciudad', 'manzanillo', 'colima'],
-    response: '📍 Estamos ubicados en <strong>Manzanillo, Colima</strong>, pero trabajamos en toda la región. Nuestro equipo puede atender proyectos en Colima y zonas aledañas.'
-  },
-  {
-    keywords: ['contacto', 'teléfono', 'telefono', 'whatsapp', 'llamar', 'correo', 'email'],
-    response: '📞 Puedes contactarnos directamente:<br>• <strong>WhatsApp:</strong> +52 999 000 0000<br>• <strong>Email:</strong> info@rodgar.com.mx<br><br>O si prefieres, puedo tomar tus datos ahora mismo para que el arquitecto te contacte. ¿Te gustaría?'
-  },
-  {
-    keywords: ['bim', 'tecnolog', 'digital', 'gemelo'],
-    response: '🖥️ Utilizamos tecnología <strong>BIM (Building Information Modeling)</strong> para coordinar todas las disciplinas del proyecto. Esto nos permite detectar conflictos en fase digital y reducir costos de materiales hasta un 15%.'
-  },
-  {
-    keywords: ['residencial', 'casa', 'hogar', 'vivienda', 'departamento'],
-    response: '🏠 Diseñamos y construimos proyectos residenciales de alta calidad: desde casas habitación hasta desarrollos de departamentos. Cada proyecto se adapta a las necesidades y presupuesto del cliente.'
-  },
-  {
-    keywords: ['comercial', 'nave', 'industrial', 'bodega', 'local', 'oficina'],
-    response: '🏢 Tenemos experiencia en proyectos comerciales e industriales: naves industriales, locales comerciales, oficinas y bodegas. Manejamos estructuras metálicas y de concreto según las necesidades del proyecto.'
-  },
-  {
-    keywords: ['garant', 'segur', 'calidad', 'confianza'],
-    response: '✅ Todos nuestros proyectos incluyen:<br>• Garantía estructural<br>• Supervisión residente permanente<br>• Reportes de avance<br>• Planos as-built al finalizar<br>• Transparencia total en costos'
-  },
-  {
-    keywords: ['hola', 'buenos', 'buenas', 'hey', 'saludos', 'que tal', 'qué tal'],
-    response: '¡Hola! 👋 Bienvenido a <strong>RODGAR</strong>. Con 10 años de experiencia en obra civil y 2 en arquitectura, estamos listos para ayudarte. ¿En qué puedo asistirte?'
-  }
-];
+// â”€â”€ Base de conocimiento para preguntas frecuentes
+const KNOWLEDGE_BASE = [];
 
-// ── Abrir/cerrar chatbot
+// â”€â”€ Abrir/cerrar chatbot
 chatbotLauncher.addEventListener('click', () => {
   chatbotWindow.classList.toggle('active');
-  // Ocultar badge de notificación al abrir
   if (chatbotBadge) chatbotBadge.style.display = 'none';
+
   if (firstOpen) {
     setTimeout(() => {
-      addBotMessage('¡Hola! 👋 Bienvenido a <strong>RODGAR</strong> — Ingeniería Civil y Arquitectura.');
+      addBotMessage('Hola. Este asistente solo recopila tus datos para seguimiento de proyecto.');
       setTimeout(() => {
-        addBotMessage('Con <strong>10 años de experiencia en obra civil</strong> y <strong>2 años en arquitectura</strong>, estamos listos para llevar tu proyecto al siguiente nivel. ¿En qué puedo ayudarte?');
-        setTimeout(() => {
-          showQuickReplies([
-            { label: '💬 Quiero cotizar un proyecto', action: 'start_lead' },
-            { label: '📋 Ver servicios', action: 'faq_servicios' },
-            { label: '🏗️ Experiencia de RODGAR', action: 'faq_experiencia' },
-            { label: '📞 Datos de contacto', action: 'faq_contacto' }
-          ]);
-        }, 400);
-      }, 800);
-    }, 600);
+        showQuickReplies([
+          { label: 'Iniciar registro', action: 'start_lead' }
+        ]);
+      }, 300);
+    }, 300);
     firstOpen = false;
   }
 });
 
-// ── Enviar mensaje del usuario
+// â”€â”€ Enviar mensaje del usuario
 chatForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const text = chatInput.value.trim();
@@ -366,16 +414,9 @@ chatForm.addEventListener('submit', (e) => {
 
   addUserMessage(text);
   chatInput.value = '';
-
-  // Procesar según el estado actual del flujo
-  setTimeout(() => {
-    processUserInput(text);
-  }, 600 + Math.random() * 400);
+  setTimeout(() => processUserInput(text), 300);
 });
 
-// ══════════════════════════════════
-// ══  Procesador principal de input
-// ══════════════════════════════════
 function processUserInput(text) {
   switch (chatState) {
     case 'asking_name':
@@ -394,60 +435,19 @@ function processUserInput(text) {
       handleDescriptionInput(text);
       break;
     default:
-      // Estado idle — buscar en FAQ o interpretar intención
-      handleIdleInput(text);
+      handleIdleInput();
       break;
   }
 }
 
-// ── Manejo cuando el chatbot está en idle (sin flujo activo)
-function handleIdleInput(text) {
-  const lower = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-  // Detectar intención de cotizar / contactar
-  if (matchesAny(lower, ['cotizar', 'cotizacion', 'proyecto', 'construir', 'quiero', 'necesito', 'presupuesto', 'interesa'])) {
-    startLeadFlow();
-    return;
-  }
-
-  // Detectar si quiere hablar con alguien
-  if (matchesAny(lower, ['hablar', 'arquitecto', 'ingeniero', 'contactar', 'llamar', 'cita'])) {
-    addBotMessage('¡Con gusto te ponemos en contacto con nuestro equipo! Permíteme tomar algunos datos para que el arquitecto pueda comunicarse contigo.');
-    setTimeout(() => startLeadFlow(), 800);
-    return;
-  }
-
-  // Buscar en base de conocimiento
-  for (const entry of KNOWLEDGE_BASE) {
-    if (entry.keywords.some(kw => lower.includes(kw))) {
-      addBotMessage(entry.response);
-      setTimeout(() => {
-        showQuickReplies([
-          { label: '💬 Quiero cotizar', action: 'start_lead' },
-          { label: '❓ Otra pregunta', action: 'otra_pregunta' }
-        ]);
-      }, 500);
-      return;
-    }
-  }
-
-  // Respuesta por defecto
-  addBotMessage('Gracias por tu mensaje. Para poder asesorarte mejor, te ofrezco estas opciones:');
+function handleIdleInput() {
+  addBotMessage('Para ayudarte, necesito recopilar tus datos de contacto y proyecto.');
   setTimeout(() => {
-    showQuickReplies([
-      { label: '💬 Cotizar un proyecto', action: 'start_lead' },
-      { label: '📋 Ver servicios', action: 'faq_servicios' },
-      { label: '📞 Datos de contacto', action: 'faq_contacto' }
-    ]);
-  }, 400);
+    showQuickReplies([{ label: 'Comenzar ahora', action: 'start_lead' }]);
+  }, 250);
 }
 
-// ══════════════════════════════════════
-// ══  FLUJO DE RECOPILACIÓN DE DATOS
-// ══════════════════════════════════════
-
 function startLeadFlow() {
-  // Reiniciar datos del lead
   leadData = {
     nombre: null,
     telefono: null,
@@ -458,62 +458,60 @@ function startLeadFlow() {
   };
 
   chatState = 'asking_name';
-  addBotMessage('¡Perfecto! Vamos a preparar tu solicitud. 📝<br><br>Para comenzar, <strong>¿cuál es tu nombre completo?</strong>');
+  addBotMessage('Vamos a registrar tu solicitud. ¿Cual es tu nombre completo?');
   chatInput.placeholder = 'Escribe tu nombre...';
 }
 
 function handleNameInput(text) {
   if (text.length < 2) {
-    addBotMessage('Por favor, ingresa un nombre válido. 😊');
+    addBotMessage('Por favor ingresa un nombre valido.');
     return;
   }
   leadData.nombre = text;
   chatState = 'asking_phone';
-  addBotMessage(`Mucho gusto, <strong>${text}</strong> 👋<br><br>¿Cuál es tu <strong>número de teléfono o WhatsApp</strong>? Así el arquitecto podrá contactarte directamente.`);
+  addBotMessage(`Gracias, ${text}. ¿Cual es tu telefono de contacto?`);
   chatInput.placeholder = 'Ej: 314 123 4567';
 }
 
 function handlePhoneInput(text) {
-  // Validar que tenga al menos 7 dígitos
   const digits = text.replace(/\D/g, '');
   if (digits.length < 7) {
-    addBotMessage('Parece que el número no es válido. Por favor ingresa un número de teléfono con al menos 10 dígitos. 📱');
+    addBotMessage('Por favor ingresa un telefono valido.');
     return;
   }
   leadData.telefono = text;
   chatState = 'asking_email';
-  addBotMessage('Perfecto ✅<br><br>¿Nos puedes compartir tu <strong>correo electrónico</strong>? Lo usaremos para enviarte la cotización formal.');
-  chatInput.placeholder = 'Ej: tucorreo@ejemplo.com';
+  addBotMessage('Perfecto. ¿Cual es tu correo electronico?');
+  chatInput.placeholder = 'Ej: nombre@correo.com';
 }
 
 function handleEmailInput(text) {
-  // Validar formato básico de email
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(text)) {
-    addBotMessage('Hmm, ese correo no parece válido. ¿Podrías verificarlo? Ejemplo: <strong>nombre@correo.com</strong>');
+    addBotMessage('El correo no parece valido. Intenta de nuevo.');
     return;
   }
   leadData.email = text;
   chatState = 'asking_project_type';
-  addBotMessage('Excelente 📧<br><br>¿Qué <strong>tipo de proyecto</strong> tienes en mente?');
+  addBotMessage('¿Que tipo de proyecto tienes en mente?');
   setTimeout(() => {
     showQuickReplies([
-      { label: '🏠 Casa habitación', action: 'type_casa' },
-      { label: '🏢 Comercial / Oficinas', action: 'type_comercial' },
-      { label: '🏗️ Nave industrial', action: 'type_industrial' },
-      { label: '🔧 Remodelación', action: 'type_remodelacion' },
-      { label: '📐 Solo diseño / planos', action: 'type_diseno' },
-      { label: '🏗️ Otro tipo', action: 'type_otro' }
+      { label: 'Casa habitacion', action: 'type_casa' },
+      { label: 'Comercial / Oficinas', action: 'type_comercial' },
+      { label: 'Nave industrial', action: 'type_industrial' },
+      { label: 'Remodelacion', action: 'type_remodelacion' },
+      { label: 'Solo diseno / planos', action: 'type_diseno' },
+      { label: 'Otro', action: 'type_otro' }
     ]);
-  }, 400);
-  chatInput.placeholder = 'O escribe el tipo de proyecto...';
+  }, 250);
+  chatInput.placeholder = 'Escribe el tipo de proyecto...';
 }
 
 function handleProjectTypeInput(text) {
   leadData.tipoProyecto = text;
   chatState = 'asking_description';
-  addBotMessage(`Entendido: <strong>${text}</strong> 📁<br><br>Por último, <strong>cuéntanos brevemente sobre tu proyecto</strong>: dimensiones aproximadas, ubicación, lo que tengas en mente. Todo nos ayuda a preparar una mejor propuesta.`);
-  chatInput.placeholder = 'Describe tu proyecto brevemente...';
+  addBotMessage(`Entendido: ${text}. Ahora describe brevemente tu proyecto.`);
+  chatInput.placeholder = 'Describe tu proyecto...';
 }
 
 function handleDescriptionInput(text) {
@@ -521,78 +519,44 @@ function handleDescriptionInput(text) {
   chatState = 'completed';
   chatInput.placeholder = 'Escribe tu mensaje...';
 
-  // Mostrar resumen
-  addBotMessage(`¡Listo! ✅ Hemos recopilado tu información:<br><br>
-    <div class="chat-summary">
-      <div class="chat-summary-row"><span class="chat-summary-label">👤 Nombre:</span> ${leadData.nombre}</div>
-      <div class="chat-summary-row"><span class="chat-summary-label">📱 Teléfono:</span> ${leadData.telefono}</div>
-      <div class="chat-summary-row"><span class="chat-summary-label">📧 Email:</span> ${leadData.email}</div>
-      <div class="chat-summary-row"><span class="chat-summary-label">📁 Proyecto:</span> ${leadData.tipoProyecto}</div>
-      <div class="chat-summary-row"><span class="chat-summary-label">📝 Detalle:</span> ${leadData.descripcion}</div>
-    </div>`);
+  const payload = {
+    formType: 'chatbot',
+    source: 'web_chatbot',
+    submittedAt: new Date().toISOString(),
+    data: {
+      nombre: safeValue(leadData.nombre),
+      telefono: safeValue(leadData.telefono),
+      correo: safeValue(leadData.email),
+      tipoProyecto: safeValue(leadData.tipoProyecto),
+      descripcionProyecto: safeValue(leadData.descripcion)
+    }
+  };
 
-  setTimeout(() => {
-    addBotMessage('¡Perfecto! Ahora puedes enviar esta información directamente al <strong>arquitecto por WhatsApp</strong> con un solo clic. 📲');
+  addBotMessage(`Registro completado:\n\n` +
+    `<div class="chat-summary">` +
+    `<div class="chat-summary-row"><span class="chat-summary-label">Nombre:</span> ${safeValue(leadData.nombre)}</div>` +
+    `<div class="chat-summary-row"><span class="chat-summary-label">Telefono:</span> ${safeValue(leadData.telefono)}</div>` +
+    `<div class="chat-summary-row"><span class="chat-summary-label">Correo:</span> ${safeValue(leadData.email)}</div>` +
+    `<div class="chat-summary-row"><span class="chat-summary-label">Proyecto:</span> ${safeValue(leadData.tipoProyecto)}</div>` +
+    `<div class="chat-summary-row"><span class="chat-summary-label">Detalle:</span> ${safeValue(leadData.descripcion)}</div>` +
+    `</div>`);
 
+  submitLeadToApi(payload).then((ok) => {
+    if (ok) {
+      addBotMessage('Tus datos fueron enviados para seguimiento.');
+    } else {
+      addBotMessage('Tus datos quedaron guardados en espera de sincronizacion.');
+    }
     setTimeout(() => {
       showQuickReplies([
-        { label: '📲 Enviar por WhatsApp', action: 'send_whatsapp' },
-        { label: '📧 Enviar por Email', action: 'send_email' },
-        { label: '💬 Tengo otra consulta', action: 'otra_pregunta' },
-        { label: '👋 Gracias, es todo', action: 'despedida' }
+        { label: 'Registrar otro proyecto', action: 'start_lead' },
+        { label: 'Finalizar', action: 'despedida' }
       ]);
-    }, 600);
-  }, 1000);
+    }, 300);
+  });
 }
 
-// ══════════════════════════════════════════════
-// ══  Enviar datos SIN backend (WhatsApp / Email)
-// ══════════════════════════════════════════════
-
-// ── Número de WhatsApp del arquitecto (formato internacional sin +)
-// ⚠️ CAMBIAR POR EL NÚMERO REAL: ejemplo para +52 314 123 4567 → '523141234567'
-const WHATSAPP_NUMBER = '523141024831';
-
-// ── Email del arquitecto
-const ARCHITECT_EMAIL = 'info@rodgar.com.mx';
-
-// Enviar info del lead por WhatsApp
-function sendViaWhatsApp(data) {
-  const message = `🏗️ *NUEVO LEAD — RODGAR WEB*\n\n` +
-    `👤 *Nombre:* ${data.nombre}\n` +
-    `📱 *Teléfono:* ${data.telefono}\n` +
-    `📧 *Email:* ${data.email}\n` +
-    `📁 *Tipo de proyecto:* ${data.tipoProyecto}\n` +
-    `📝 *Descripción:* ${data.descripcion}\n\n` +
-    `📅 *Fecha:* ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}\n` +
-    `🌐 *Origen:* Chatbot Web RODGAR`;
-
-  const encoded = encodeURIComponent(message);
-  const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encoded}`;
-  window.open(url, '_blank');
-}
-
-// Enviar info del lead por Email (abre cliente de correo)
-function sendViaEmail(data) {
-  const subject = `Nuevo Lead Web — ${data.nombre} — ${data.tipoProyecto}`;
-  const body = `NUEVO LEAD — RODGAR WEB\n\n` +
-    `Nombre: ${data.nombre}\n` +
-    `Teléfono: ${data.telefono}\n` +
-    `Email: ${data.email}\n` +
-    `Tipo de proyecto: ${data.tipoProyecto}\n` +
-    `Descripción: ${data.descripcion}\n\n` +
-    `Fecha: ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}\n` +
-    `Origen: Chatbot Web RODGAR`;
-
-  const mailtoUrl = `mailto:${ARCHITECT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  window.open(mailtoUrl, '_blank');
-}
-
-// ══════════════════════════════════
-// ══  Manejo de quick replies
-// ══════════════════════════════════
 function handleQuickReply(action) {
-  // Deshabilitar los botones de quick reply actuales
   document.querySelectorAll('.chat-quick-replies').forEach(el => {
     el.querySelectorAll('.chat-quick-btn').forEach(btn => {
       btn.disabled = true;
@@ -602,84 +566,13 @@ function handleQuickReply(action) {
   });
 
   switch (action) {
-    case 'send_whatsapp':
-      addUserMessage('Enviar por WhatsApp');
-      sendViaWhatsApp(leadData);
-      setTimeout(() => {
-        addBotMessage('¡Se abrió WhatsApp con tu información lista para enviar! 📲✅<br><br>Solo presiona <strong>Enviar</strong> en WhatsApp y el arquitecto recibirá todos tus datos al instante.');
-        setTimeout(() => {
-          showQuickReplies([
-            { label: '💬 Tengo otra consulta', action: 'otra_pregunta' },
-            { label: '👋 Gracias, es todo', action: 'despedida' }
-          ]);
-        }, 500);
-      }, 800);
-      break;
-
-    case 'send_email':
-      addUserMessage('Enviar por Email');
-      sendViaEmail(leadData);
-      setTimeout(() => {
-        addBotMessage('¡Se abrió tu correo con la información pre-llenada! 📧✅<br><br>Solo presiona <strong>Enviar</strong> en tu cliente de correo.');
-        setTimeout(() => {
-          showQuickReplies([
-            { label: '💬 Tengo otra consulta', action: 'otra_pregunta' },
-            { label: '👋 Gracias, es todo', action: 'despedida' }
-          ]);
-        }, 500);
-      }, 800);
-      break;
-
     case 'start_lead':
-      addUserMessage('Quiero cotizar un proyecto');
-      setTimeout(() => startLeadFlow(), 500);
+      addUserMessage('Iniciar registro');
+      setTimeout(() => startLeadFlow(), 250);
       break;
-
-    case 'faq_servicios':
-      addUserMessage('Ver servicios');
-      setTimeout(() => {
-        const entry = KNOWLEDGE_BASE.find(e => e.keywords.includes('servicio'));
-        if (entry) addBotMessage(entry.response);
-        setTimeout(() => {
-          showQuickReplies([
-            { label: '💬 Quiero cotizar', action: 'start_lead' },
-            { label: '❓ Otra pregunta', action: 'otra_pregunta' }
-          ]);
-        }, 500);
-      }, 600);
-      break;
-
-    case 'faq_experiencia':
-      addUserMessage('Experiencia de RODGAR');
-      setTimeout(() => {
-        const entry = KNOWLEDGE_BASE.find(e => e.keywords.includes('experiencia'));
-        if (entry) addBotMessage(entry.response);
-        setTimeout(() => {
-          showQuickReplies([
-            { label: '💬 Quiero cotizar', action: 'start_lead' },
-            { label: '❓ Otra pregunta', action: 'otra_pregunta' }
-          ]);
-        }, 500);
-      }, 600);
-      break;
-
-    case 'faq_contacto':
-      addUserMessage('Datos de contacto');
-      setTimeout(() => {
-        const entry = KNOWLEDGE_BASE.find(e => e.keywords.includes('contacto'));
-        if (entry) addBotMessage(entry.response);
-        setTimeout(() => {
-          showQuickReplies([
-            { label: '💬 Quiero cotizar', action: 'start_lead' },
-            { label: '❓ Otra pregunta', action: 'otra_pregunta' }
-          ]);
-        }, 500);
-      }, 600);
-      break;
-
     case 'type_casa':
-      addUserMessage('Casa habitación');
-      handleProjectTypeInput('Casa habitación');
+      addUserMessage('Casa habitacion');
+      handleProjectTypeInput('Casa habitacion');
       break;
     case 'type_comercial':
       addUserMessage('Comercial / Oficinas');
@@ -690,56 +583,33 @@ function handleQuickReply(action) {
       handleProjectTypeInput('Nave industrial');
       break;
     case 'type_remodelacion':
-      addUserMessage('Remodelación');
-      handleProjectTypeInput('Remodelación');
+      addUserMessage('Remodelacion');
+      handleProjectTypeInput('Remodelacion');
       break;
     case 'type_diseno':
-      addUserMessage('Solo diseño / planos');
-      handleProjectTypeInput('Solo diseño / planos');
+      addUserMessage('Solo diseno / planos');
+      handleProjectTypeInput('Solo diseno / planos');
       break;
     case 'type_otro':
-      addUserMessage('Otro tipo de proyecto');
-      handleProjectTypeInput('Otro tipo de proyecto');
+      addUserMessage('Otro');
+      handleProjectTypeInput('Otro');
       break;
-
-    case 'otra_pregunta':
-      chatState = 'idle';
-      addUserMessage('Tengo otra pregunta');
-      setTimeout(() => {
-        addBotMessage('¡Claro! Escríbeme tu pregunta y con gusto te ayudo. También puedes elegir una opción:');
-        setTimeout(() => {
-          showQuickReplies([
-            { label: '💬 Cotizar proyecto', action: 'start_lead' },
-            { label: '📋 Servicios', action: 'faq_servicios' },
-            { label: '🏗️ Experiencia', action: 'faq_experiencia' },
-            { label: '📞 Contacto', action: 'faq_contacto' }
-          ]);
-        }, 400);
-      }, 500);
-      break;
-
     case 'despedida':
-      addUserMessage('Gracias, es todo');
+      addUserMessage('Finalizar');
       setTimeout(() => {
-        addBotMessage('¡Gracias por tu interés en <strong>RODGAR</strong>! 🙏 Recuerda que estamos a una llamada de distancia. ¡Que tengas un excelente día! 🏗️✨');
+        addBotMessage('Gracias. Tu registro fue guardado correctamente.');
         chatState = 'idle';
-      }, 500);
+      }, 250);
       break;
   }
 }
-
-// ══════════════════════════════════
-// ══  Funciones de UI del chat
-// ══════════════════════════════════
-
-// Agregar mensaje del bot (soporta HTML)
 function addBotMessage(html) {
   const div = document.createElement('div');
   div.className = 'msg msg-bot';
   div.innerHTML = html;
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
-  // Animación de entrada
+  // AnimaciÃ³n de entrada
   requestAnimationFrame(() => {
     div.classList.add('in');
   });
@@ -757,7 +627,7 @@ function addUserMessage(text) {
   });
 }
 
-// Mostrar botones de respuesta rápida
+// Mostrar botones de respuesta rÃ¡pida
 function showQuickReplies(options) {
   const container = document.createElement('div');
   container.className = 'chat-quick-replies';
@@ -773,19 +643,19 @@ function showQuickReplies(options) {
   chatMessages.appendChild(container);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 
-  // Animación escalonada de entrada
+  // AnimaciÃ³n escalonada de entrada
   requestAnimationFrame(() => {
     container.classList.add('in');
   });
 }
 
-// Función auxiliar para detectar keywords
+// FunciÃ³n auxiliar para detectar keywords
 function matchesAny(text, keywords) {
   return keywords.some(kw => text.includes(kw));
 }
 
 
-// ── Hamburger Menu Logic
+// â”€â”€ Hamburger Menu Logic
 const hamburger = document.getElementById('hamburger');
 const navLinks = document.querySelector('.nav-links');
 const navItems = document.querySelectorAll('.nav-links a');
@@ -816,3 +686,6 @@ navItems.forEach(item => {
     spans[2].style.transform = 'none';
   });
 });
+
+
+
