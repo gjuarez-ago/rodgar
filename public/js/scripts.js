@@ -19,8 +19,8 @@ function showToast(title, msg) {
 
 // --- EmailJS Configuration
 function initEmailJS() {
-  if (typeof emailjs !== "undefined") {
-    emailjs.init({ publicKey: "eGWzwCVi4qWYy9mKa" });
+  if (typeof window.emailjs !== "undefined") {
+    window.emailjs.init({ publicKey: "eGWzwCVi4qWYy9mKa" });
   } else {
     setTimeout(initEmailJS, 300);
   }
@@ -99,11 +99,19 @@ function safeValue(v) {
 }
 
 async function sendEmailJS(params) {
+  // Verificar si la librería está disponible de forma segura en window
+  const lib = window.emailjs || null;
+
+  if (!lib) {
+    console.warn('EmailJS no está disponible en este entorno. (Puede ser por el protocolo file:// o bloqueo de red).');
+    return false;
+  }
+
   try {
-    const res = await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params);
+    const res = await lib.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params);
     return res.status === 200;
   } catch (err) {
-    console.error('EmailJS Error:', err);
+    console.error('Error en EmailJS:', err);
     return false;
   }
 }
@@ -376,13 +384,16 @@ chatbotLauncher.addEventListener('click', () => {
 
   if (firstOpen) {
     setTimeout(() => {
-      addBotMessage('Hola. Este asistente solo recopila tus datos para seguimiento de proyecto.');
+      addBotMessage('¡Hola! 👋 Bienvenido a <strong>RODGAR</strong>. Soy tu asistente virtual y estoy aquí para ayudarte a transformar tu visión en una obra sólida.');
       setTimeout(() => {
-        showQuickReplies([
-          { label: 'Iniciar registro', action: 'start_lead' }
-        ]);
-      }, 300);
-    }, 300);
+        addBotMessage('¿Te gustaría que iniciemos con el registro de tu proyecto para que uno de nuestros ingenieros te brinde una asesoría personalizada?');
+        setTimeout(() => {
+          showQuickReplies([
+            { label: '¡Sí, comencemos!', action: 'start_lead' }
+          ]);
+        }, 500);
+      }, 800);
+    }, 400);
     firstOpen = false;
   }
 });
@@ -422,9 +433,9 @@ function processUserInput(text) {
 }
 
 function handleIdleInput() {
-  addBotMessage('Para ayudarte, necesito recopilar tus datos de contacto y proyecto.');
+  addBotMessage('Para poder brindarte el mejor servicio, necesito conocer un poco sobre ti y tu proyecto.');
   setTimeout(() => {
-    showQuickReplies([{ label: 'Comenzar ahora', action: 'start_lead' }]);
+    showQuickReplies([{ label: 'Iniciar mi registro', action: 'start_lead' }]);
   }, 250);
 }
 
@@ -439,50 +450,50 @@ function startLeadFlow() {
   };
 
   chatState = 'asking_name';
-  addBotMessage('Vamos a registrar tu solicitud. ¿Cuál es tu nombre completo?');
+  addBotMessage('¡Excelente! Para empezar esta colaboración, ¿cuál es tu nombre completo?');
   chatInput.placeholder = 'Escribe tu nombre...';
 }
 
 function handleNameInput(text) {
   if (text.length < 2) {
-    addBotMessage('Por favor ingresa un nombre válido.');
+    addBotMessage('Por favor, ingresa un nombre válido para poder dirigirnos correctamente.');
     return;
   }
   leadData.nombre = text;
   chatState = 'asking_phone';
-  addBotMessage(`Gracias, ${text}. ¿Cuál es tu teléfono de contacto?`);
+  addBotMessage(`Mucho gusto, <strong>${text}</strong>. Por favor, compárteme tu número de teléfono para que podamos coordinar una visita o llamada de seguimiento.`);
   chatInput.placeholder = 'Ej: 314 123 4567';
 }
 
 function handlePhoneInput(text) {
   const digits = text.replace(/\D/g, '');
   if (digits.length < 7) {
-    addBotMessage('Por favor ingresa un teléfono válido.');
+    addBotMessage('Necesitamos un número válido para contactarte. Prueba de nuevo, por favor.');
     return;
   }
   leadData.telefono = text;
   chatState = 'asking_email';
-  addBotMessage('Perfecto. ¿Cuál es tu correo electrónico?');
+  addBotMessage('¡Perfecto! También necesitaremos tu correo electrónico para enviarte información técnica y propuestas de diseño.');
   chatInput.placeholder = 'Ej: nombre@correo.com';
 }
 
 function handleEmailInput(text) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(text)) {
-    addBotMessage('El correo no parece válido. Intenta de nuevo.');
+    addBotMessage('El formato del correo no parece correcto. ¿Podrías escribirlo de nuevo?');
     return;
   }
   leadData.email = text;
   chatState = 'asking_project_type';
-  addBotMessage('¿Qué tipo de proyecto tienes en mente?');
+  addBotMessage('Gracias por la información. Ahora cuéntame, ¿qué tipo de proyecto tienes en mente?');
   setTimeout(() => {
     showQuickReplies([
-      { label: 'Casa habitación', action: 'type_casa' },
-      { label: 'Comercial / Oficinas', action: 'type_comercial' },
-      { label: 'Nave industrial', action: 'type_industrial' },
-      { label: 'Remodelación', action: 'type_remodelacion' },
-      { label: 'Solo diseño / planos', action: 'type_diseno' },
-      { label: 'Otro', action: 'type_otro' }
+      { label: 'Casa habitación 🏠', action: 'type_casa' },
+      { label: 'Comercial / Oficinas 🏢', action: 'type_comercial' },
+      { label: 'Nave industrial 🏭', action: 'type_industrial' },
+      { label: 'Remodelación 🛠️', action: 'type_remodelacion' },
+      { label: 'Solo diseño / planos 📐', action: 'type_diseno' },
+      { label: 'Otro 🏗️', action: 'type_otro' }
     ]);
   }, 250);
   chatInput.placeholder = 'Escribe el tipo de proyecto...';
@@ -491,8 +502,8 @@ function handleEmailInput(text) {
 function handleProjectTypeInput(text) {
   leadData.tipoProyecto = text;
   chatState = 'asking_description';
-  addBotMessage(`Entendido: ${text}. Ahora describe brevemente tu proyecto.`);
-  chatInput.placeholder = 'Describe tu proyecto...';
+  addBotMessage(`¡Suena como un gran proyecto! 🏗️ Por último, descríbelo brevemente (dimensiones, condiciones o detalles especiales) para que nuestros ingenieros estén preparados.`);
+  chatInput.placeholder = 'Describe tu proyecto aquí...';
 }
 
 function handleDescriptionInput(text) {
@@ -522,14 +533,14 @@ function handleDescriptionInput(text) {
 
   sendEmailJS(templateParams).then((ok) => {
     if (ok) {
-      addBotMessage('Tus datos fueron enviados para seguimiento.');
+      addBotMessage('¡Excelente! Tus datos han sido enviados directamente a nuestro equipo técnico. Nos pondremos en contacto contigo lo antes posible.');
     } else {
-      addBotMessage('Hubo un retraso en el envío, pero nuestro equipo revisará tu solicitud pronto.');
+      addBotMessage('Tuvimos un pequeño inconveniente al enviar los datos, pero no te preocupes, nuestro equipo revisará tu solicitud manualmente.');
     }
     setTimeout(() => {
       showQuickReplies([
         { label: 'Registrar otro proyecto', action: 'start_lead' },
-        { label: 'Finalizar', action: 'despedida' }
+        { label: 'Finalizar conversación', action: 'despedida' }
       ]);
     }, 300);
   });
@@ -550,33 +561,33 @@ function handleQuickReply(action) {
       setTimeout(() => startLeadFlow(), 250);
       break;
     case 'type_casa':
-      addUserMessage('Casa habitación');
+      addUserMessage('Casa habitación 🏠');
       handleProjectTypeInput('Casa habitación');
       break;
     case 'type_comercial':
-      addUserMessage('Comercial / Oficinas');
+      addUserMessage('Comercial / Oficinas 🏢');
       handleProjectTypeInput('Comercial / Oficinas');
       break;
     case 'type_industrial':
-      addUserMessage('Nave industrial');
+      addUserMessage('Nave industrial 🏭');
       handleProjectTypeInput('Nave industrial');
       break;
     case 'type_remodelacion':
-      addUserMessage('Remodelación');
+      addUserMessage('Remodelación 🛠️');
       handleProjectTypeInput('Remodelación');
       break;
     case 'type_diseno':
-      addUserMessage('Solo diseño / planos');
+      addUserMessage('Solo diseño / planos 📐');
       handleProjectTypeInput('Solo diseño / planos');
       break;
     case 'type_otro':
-      addUserMessage('Otro');
+      addUserMessage('Otro 🏗️');
       handleProjectTypeInput('Otro');
       break;
     case 'despedida':
-      addUserMessage('Finalizar');
+      addUserMessage('Finalizar conversación');
       setTimeout(() => {
-        addBotMessage('Gracias. Tu registro fue guardado correctamente.');
+        addBotMessage('Muchas gracias por tu confianza en <strong>RODGAR</strong>. ¡Esperamos construir algo increíble juntos!');
         chatState = 'idle';
       }, 250);
       break;
