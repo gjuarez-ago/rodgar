@@ -72,10 +72,10 @@
 
     .section-headline {
       font-family: var(--font-display);
-      font-size: clamp(2rem, 3.5vw, 2.9rem);
-      font-weight: 800;
-      line-height: 1.08;
-      letter-spacing: -0.025em;
+      font-size: clamp(2.2rem, 3.8vw, 3.2rem);
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -0.035em;
       color: var(--primary);
     }
 
@@ -305,9 +305,10 @@
     }
 
     .nav-links a {
+      font-family: var(--font-display);
       font-size: 0.72rem;
-      font-weight: 600;
-      letter-spacing: 0.1em;
+      font-weight: 700;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
       color: rgba(255, 255, 255, 0.55);
       text-decoration: none;
@@ -332,10 +333,12 @@
     }
 
     .nav-tel {
-      font-size: 0.72rem;
-      font-weight: 500;
+      font-family: var(--font-display);
+      font-size: 0.68rem;
+      font-weight: 600;
       color: rgba(255, 255, 255, 0.4);
-      letter-spacing: 0.04em;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
     .nav-hamburger {
