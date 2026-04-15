@@ -32,27 +32,6 @@
       /* Typography */
       --font-display: 'Manrope', sans-serif;
       --font-body: 'Work Sans', sans-serif;
-
-      /* Shadows */
-      --shadow-float: 0 16px 48px rgba(26, 28, 30, 0.06);
-      --shadow-card: 0 4px 24px rgba(26, 28, 30, 0.04);
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      font-family: var(--font-body);
-      background: var(--surface);
-      color: var(--on-surface);
-      overflow-x: hidden;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    /* ─── UTILITIES ─── */
-    .gold {
-      color: var(--gold);
     }
 
     .label-tag {
@@ -2785,12 +2764,21 @@
       .social-side-bar {
         top: auto;
         bottom: 25px;
+<<<<<<< HEAD
         right: 25px;
+=======
+        right: 20px;
+>>>>>>> d3116fbd510d6428eca038ca39e522fa8d217678
         left: auto;
         transform: none;
         flex-direction: column;
         padding: 10px;
+<<<<<<< HEAD
         width: auto;
+=======
+        width: 44px;
+        min-width: 0;
+>>>>>>> d3116fbd510d6428eca038ca39e522fa8d217678
         gap: 12px;
         border-radius: 30px;
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
