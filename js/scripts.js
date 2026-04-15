@@ -64,6 +64,196 @@ const ro = new IntersectionObserver((entries) => {
 }, { threshold: 0.07 });
 document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.observe(el));
 
+// ══════════════════════════════════════════════════
+// ══  CARRUSEL DE PORTAFOLIO — Responsivo + Touch
+// ══════════════════════════════════════════════════
+
+(function initCarousel() {
+  const track = document.getElementById('carousel-track');
+  const viewport = document.getElementById('carousel-viewport');
+  const prevBtn = document.getElementById('carousel-prev');
+  const nextBtn = document.getElementById('carousel-next');
+  const counterEl = document.getElementById('carousel-counter');
+  const dotsContainer = document.getElementById('carousel-dots');
+  const slides = track.querySelectorAll('.carousel-slide');
+  const totalSlides = slides.length;
+
+  let currentIndex = 0;
+  let slideWidth = 0;
+  let autoPlayTimer = null;
+  const AUTO_PLAY_INTERVAL = 5000;
+
+  // ── Calcular ancho de cada slide según CSS flex-basis
+  function calcSlideWidth() {
+    if (!slides[0]) return;
+    slideWidth = slides[0].offsetWidth + parseInt(getComputedStyle(slides[0]).paddingRight || 0);
+  }
+
+  // ── Mover al slide indicado
+  function goToSlide(index, smooth = true) {
+    if (index < 0) index = totalSlides - 1;
+    if (index >= totalSlides) index = 0;
+    currentIndex = index;
+
+    calcSlideWidth();
+    track.style.transition = smooth
+      ? 'transform 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+      : 'none';
+    track.style.transform = `translateX(-${currentIndex * slideWidth}px)`;
+
+    updateUI();
+  }
+
+  // ── Actualizar contador, dots, estado de flechas
+  function updateUI() {
+    // Contador
+    const display = String(currentIndex + 1).padStart(2, '0');
+    counterEl.textContent = `${display} / ${String(totalSlides).padStart(2, '0')}`;
+
+    // Dots
+    dotsContainer.querySelectorAll('.carousel-dot').forEach((dot, i) => {
+      dot.classList.toggle('active', i === currentIndex);
+    });
+  }
+
+  // ── Generar dots
+  function buildDots() {
+    dotsContainer.innerHTML = '';
+    for (let i = 0; i < totalSlides; i++) {
+      const dot = document.createElement('button');
+      dot.className = 'carousel-dot' + (i === 0 ? ' active' : '');
+      dot.setAttribute('aria-label', `Proyecto ${i + 1}`);
+      dot.addEventListener('click', () => {
+        goToSlide(i);
+        resetAutoPlay();
+      });
+      dotsContainer.appendChild(dot);
+    }
+  }
+
+  // ── Auto-play
+  function startAutoPlay() {
+    stopAutoPlay();
+    autoPlayTimer = setInterval(() => {
+      goToSlide(currentIndex + 1);
+    }, AUTO_PLAY_INTERVAL);
+  }
+
+  function stopAutoPlay() {
+    if (autoPlayTimer) {
+      clearInterval(autoPlayTimer);
+      autoPlayTimer = null;
+    }
+  }
+
+  function resetAutoPlay() {
+    stopAutoPlay();
+    startAutoPlay();
+  }
+
+  // ── Flechas
+  prevBtn.addEventListener('click', () => {
+    goToSlide(currentIndex - 1);
+    resetAutoPlay();
+  });
+
+  nextBtn.addEventListener('click', () => {
+    goToSlide(currentIndex + 1);
+    resetAutoPlay();
+  });
+
+  // ── Soporte teclado
+  document.addEventListener('keydown', (e) => {
+    // Solo si la sección de portafolio está visible en el viewport
+    const section = document.getElementById('portafolio');
+    const rect = section.getBoundingClientRect();
+    if (rect.top > window.innerHeight || rect.bottom < 0) return;
+
+    if (e.key === 'ArrowLeft') { goToSlide(currentIndex - 1); resetAutoPlay(); }
+    if (e.key === 'ArrowRight') { goToSlide(currentIndex + 1); resetAutoPlay(); }
+  });
+
+  // ── Drag / Touch (swipe para mobile y desktop)
+  let isDragging = false;
+  let startX = 0;
+  let currentTranslate = 0;
+  let prevTranslate = 0;
+
+  function getPositionX(event) {
+    return event.type.includes('mouse') ? event.pageX : event.touches[0].clientX;
+  }
+
+  function dragStart(event) {
+    isDragging = true;
+    startX = getPositionX(event);
+    prevTranslate = currentIndex * slideWidth * -1;
+    track.classList.add('is-dragging');
+    stopAutoPlay();
+  }
+
+  function dragMove(event) {
+    if (!isDragging) return;
+    const currentX = getPositionX(event);
+    const diff = currentX - startX;
+    currentTranslate = prevTranslate + diff;
+    track.style.transform = `translateX(${currentTranslate}px)`;
+  }
+
+  function dragEnd(event) {
+    if (!isDragging) return;
+    isDragging = false;
+    track.classList.remove('is-dragging');
+
+    const movedBy = currentTranslate - prevTranslate;
+    // Si arrastró más del 20% del ancho del slide, cambiar
+    const threshold = slideWidth * 0.2;
+
+    if (movedBy < -threshold) {
+      goToSlide(currentIndex + 1);
+    } else if (movedBy > threshold) {
+      goToSlide(currentIndex - 1);
+    } else {
+      goToSlide(currentIndex); // volver al actual
+    }
+    resetAutoPlay();
+  }
+
+  // Mouse events
+  viewport.addEventListener('mousedown', dragStart);
+  viewport.addEventListener('mousemove', dragMove);
+  viewport.addEventListener('mouseup', dragEnd);
+  viewport.addEventListener('mouseleave', () => {
+    if (isDragging) dragEnd();
+  });
+
+  // Touch events
+  viewport.addEventListener('touchstart', dragStart, { passive: true });
+  viewport.addEventListener('touchmove', dragMove, { passive: true });
+  viewport.addEventListener('touchend', dragEnd);
+
+  // Prevenir drag de imágenes
+  track.addEventListener('dragstart', e => e.preventDefault());
+
+  // ── Pausar auto-play cuando el mouse está encima
+  viewport.addEventListener('mouseenter', stopAutoPlay);
+  viewport.addEventListener('mouseleave', startAutoPlay);
+
+  // ── Recalcular en resize
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      goToSlide(currentIndex, false);
+    }, 150);
+  });
+
+  // ── Inicializar
+  buildDots();
+  calcSlideWidth();
+  goToSlide(0, false);
+  startAutoPlay();
+})();
+
 
 // ══════════════════════════════════════════════════════════════
 // ══  RODGAR AI CHATBOT — Flujo conversacional con recopilación
@@ -342,44 +532,60 @@ function handleDescriptionInput(text) {
     </div>`);
 
   setTimeout(() => {
-    addBotMessage('Nuestro <strong>arquitecto se pondrá en contacto contigo</strong> a la brevedad para darte atención personalizada. 🏗️<br><br>¡Gracias por confiar en RODGAR!');
-
-    // ── Aquí se enviará al endpoint cuando esté listo
-    sendLeadToServer(leadData);
+    addBotMessage('¡Perfecto! Ahora puedes enviar esta información directamente al <strong>arquitecto por WhatsApp</strong> con un solo clic. 📲');
 
     setTimeout(() => {
       showQuickReplies([
+        { label: '📲 Enviar por WhatsApp', action: 'send_whatsapp' },
+        { label: '📧 Enviar por Email', action: 'send_email' },
         { label: '💬 Tengo otra consulta', action: 'otra_pregunta' },
-        { label: '📋 Ver servicios', action: 'faq_servicios' },
         { label: '👋 Gracias, es todo', action: 'despedida' }
       ]);
     }, 600);
   }, 1000);
 }
 
-// ══════════════════════════════════
-// ══  Enviar datos al servidor
-// ══════════════════════════════════
-function sendLeadToServer(data) {
-  // TODO: Integrar con endpoint real
-  // Ejemplo de la estructura que se enviará:
-  console.log('📤 Lead capturado listo para enviar al endpoint:', JSON.stringify(data, null, 2));
+// ══════════════════════════════════════════════
+// ══  Enviar datos SIN backend (WhatsApp / Email)
+// ══════════════════════════════════════════════
 
-  // Cuando tengas el endpoint, descomenta algo como:
-  /*
-  fetch('https://tu-api.com/api/leads', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  })
-  .then(res => res.json())
-  .then(result => {
-    console.log('Lead enviado exitosamente:', result);
-  })
-  .catch(err => {
-    console.error('Error al enviar lead:', err);
-  });
-  */
+// ── Número de WhatsApp del arquitecto (formato internacional sin +)
+// ⚠️ CAMBIAR POR EL NÚMERO REAL: ejemplo para +52 314 123 4567 → '523141234567'
+const WHATSAPP_NUMBER = '523141024831';
+
+// ── Email del arquitecto
+const ARCHITECT_EMAIL = 'info@rodgar.com.mx';
+
+// Enviar info del lead por WhatsApp
+function sendViaWhatsApp(data) {
+  const message = `🏗️ *NUEVO LEAD — RODGAR WEB*\n\n` +
+    `👤 *Nombre:* ${data.nombre}\n` +
+    `📱 *Teléfono:* ${data.telefono}\n` +
+    `📧 *Email:* ${data.email}\n` +
+    `📁 *Tipo de proyecto:* ${data.tipoProyecto}\n` +
+    `📝 *Descripción:* ${data.descripcion}\n\n` +
+    `📅 *Fecha:* ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}\n` +
+    `🌐 *Origen:* Chatbot Web RODGAR`;
+
+  const encoded = encodeURIComponent(message);
+  const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encoded}`;
+  window.open(url, '_blank');
+}
+
+// Enviar info del lead por Email (abre cliente de correo)
+function sendViaEmail(data) {
+  const subject = `Nuevo Lead Web — ${data.nombre} — ${data.tipoProyecto}`;
+  const body = `NUEVO LEAD — RODGAR WEB\n\n` +
+    `Nombre: ${data.nombre}\n` +
+    `Teléfono: ${data.telefono}\n` +
+    `Email: ${data.email}\n` +
+    `Tipo de proyecto: ${data.tipoProyecto}\n` +
+    `Descripción: ${data.descripcion}\n\n` +
+    `Fecha: ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}\n` +
+    `Origen: Chatbot Web RODGAR`;
+
+  const mailtoUrl = `mailto:${ARCHITECT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.open(mailtoUrl, '_blank');
 }
 
 // ══════════════════════════════════
@@ -396,6 +602,34 @@ function handleQuickReply(action) {
   });
 
   switch (action) {
+    case 'send_whatsapp':
+      addUserMessage('Enviar por WhatsApp');
+      sendViaWhatsApp(leadData);
+      setTimeout(() => {
+        addBotMessage('¡Se abrió WhatsApp con tu información lista para enviar! 📲✅<br><br>Solo presiona <strong>Enviar</strong> en WhatsApp y el arquitecto recibirá todos tus datos al instante.');
+        setTimeout(() => {
+          showQuickReplies([
+            { label: '💬 Tengo otra consulta', action: 'otra_pregunta' },
+            { label: '👋 Gracias, es todo', action: 'despedida' }
+          ]);
+        }, 500);
+      }, 800);
+      break;
+
+    case 'send_email':
+      addUserMessage('Enviar por Email');
+      sendViaEmail(leadData);
+      setTimeout(() => {
+        addBotMessage('¡Se abrió tu correo con la información pre-llenada! 📧✅<br><br>Solo presiona <strong>Enviar</strong> en tu cliente de correo.');
+        setTimeout(() => {
+          showQuickReplies([
+            { label: '💬 Tengo otra consulta', action: 'otra_pregunta' },
+            { label: '👋 Gracias, es todo', action: 'despedida' }
+          ]);
+        }, 500);
+      }, 800);
+      break;
+
     case 'start_lead':
       addUserMessage('Quiero cotizar un proyecto');
       setTimeout(() => startLeadFlow(), 500);
