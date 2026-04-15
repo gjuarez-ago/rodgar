@@ -1,4 +1,4 @@
-﻿// â”€â”€ Budget range
+// --- Budget range
 function updateBudget(v) {
   const n = parseInt(v);
   let d;
@@ -8,7 +8,7 @@ function updateBudget(v) {
   document.getElementById('budget-val').textContent = d;
 }
 
-// â”€â”€ Toast
+// --- Toast
 function showToast(title, msg) {
   const t = document.getElementById('toast');
   document.getElementById('toast-title').textContent = title;
@@ -17,9 +17,18 @@ function showToast(title, msg) {
   setTimeout(() => t.classList.remove('show'), 5500);
 }
 
-// â”€â”€ Form handlers
-const LEAD_API_ENDPOINT = '/api/leads';
-const LEAD_QUEUE_KEY = 'rodgar_pending_leads';
+// --- EmailJS Configuration
+function initEmailJS() {
+  if (typeof emailjs !== "undefined") {
+    emailjs.init({ publicKey: "eGWzwCVi4qWYy9mKa" });
+  } else {
+    setTimeout(initEmailJS, 300);
+  }
+}
+initEmailJS();
+
+const EMAILJS_SERVICE_ID = 'service_o0d5nrrmi';
+const EMAILJS_TEMPLATE_ID = 'template_i4923gv';
 
 async function handleCot(e) {
   e.preventDefault();
@@ -31,37 +40,28 @@ async function handleCot(e) {
 
   const data = new FormData(form);
   const servicios = data.getAll('servicios');
-  const presupuestoTexto = document.getElementById('budget-val')?.textContent?.trim() || '';
+  const presupuestoTexto = document.getElementById('budget-val')?.textContent?.trim() || 'No especificado';
 
-  const payload = {
-    formType: 'cotizacion',
-    source: 'web_form_cotizacion',
-    submittedAt: new Date().toISOString(),
-    data: {
-      nombre: safeValue(data.get('nombre')),
-      empresa: safeValue(data.get('empresa')),
-      correo: safeValue(data.get('correo')),
-      telefono: safeValue(data.get('telefono')),
-      tipoProyecto: safeValue(data.get('tipo_proyecto')),
-      ciudadEstado: safeValue(data.get('ciudad_estado')),
-      presupuestoEstimado: safeValue(presupuestoTexto),
-      plazoInicio: safeValue(data.get('plazo_inicio')),
-      serviciosRequeridos: servicios.length ? servicios : [],
-      descripcionProyecto: safeValue(data.get('descripcion_proyecto')),
-      origen: safeValue(data.get('origen'))
-    }
+  const templateParams = {
+    from_name: safeValue(data.get('nombre')),
+    from_email: safeValue(data.get('correo')),
+    telefono: safeValue(data.get('telefono') || data.get('ciudad_estado')), // Fallback a ubicación si no hay tel
+    form_type: 'SOLICITUD DE COTIZACIÓN',
+    project_type: safeValue(data.get('tipo_proyecto')),
+    budget: presupuestoTexto,
+    message: `Detalles: ${safeValue(data.get('descripcion_proyecto'))}\nServicios: ${servicios.join(', ')}\nPlazo: ${safeValue(data.get('plazo_inicio'))}`,
+    source: 'Formulario de Cotización Web'
   };
 
-  const sent = await submitLeadToApi(payload);
+  const sent = await sendEmailJS(templateParams);
   if (sent) {
-    showToast('Solicitud registrada', 'Tus datos fueron enviados correctamente para seguimiento.');
+    showToast('Solicitud enviada', 'Tu propuesta técnica será procesada por nuestros ingenieros.');
+    form.reset();
+    document.getElementById('budget-val').textContent = '$500,000 MXN';
+    document.getElementById('budget-range').value = 500000;
   } else {
-    showToast('Solicitud registrada en espera', 'Tus datos quedaron guardados y se enviaran al restablecer conexiÃ³n.');
+    showToast('Error de envío', 'Hubo un problema al enviar tus datos. Por favor intenta más tarde.');
   }
-
-  form.reset();
-  document.getElementById('budget-val').textContent = '$500,000 MXN';
-  document.getElementById('budget-range').value = 500000;
 }
 
 async function handleContact(e) {
@@ -73,28 +73,24 @@ async function handleContact(e) {
   }
 
   const data = new FormData(form);
-  const payload = {
-    formType: 'contacto',
-    source: 'web_form_contacto',
-    submittedAt: new Date().toISOString(),
-    data: {
-      nombre: safeValue(data.get('nombre')),
-      empresa: safeValue(data.get('empresa')),
-      correo: safeValue(data.get('correo')),
-      telefono: safeValue(data.get('telefono')),
-      asunto: safeValue(data.get('asunto')),
-      mensaje: safeValue(data.get('mensaje'))
-    }
+  const templateParams = {
+    from_name: safeValue(data.get('nombre')),
+    from_email: safeValue(data.get('correo')),
+    telefono: safeValue(data.get('telefono')),
+    form_type: 'CONSULTA GENERAL',
+    project_type: safeValue(data.get('asunto')),
+    budget: 'N/A',
+    message: safeValue(data.get('mensaje')),
+    source: 'Formulario de Contacto Web'
   };
 
-  const sent = await submitLeadToApi(payload);
+  const sent = await sendEmailJS(templateParams);
   if (sent) {
-    showToast('Mensaje registrado', 'Tus datos fueron enviados correctamente para seguimiento.');
+    showToast('Mensaje enviado', 'Nuestro equipo se pondrá en contacto contigo a la brevedad.');
+    form.reset();
   } else {
-    showToast('Mensaje registrado en espera', 'Tus datos quedaron guardados y se enviaran al restablecer conexiÃ³n.');
+    showToast('Error de envío', 'No pudimos procesar tu mensaje. Intenta de nuevo más tarde.');
   }
-
-  form.reset();
 }
 
 function safeValue(v) {
@@ -102,37 +98,22 @@ function safeValue(v) {
   return text || 'No especificado';
 }
 
-async function submitLeadToApi(payload) {
+async function sendEmailJS(params) {
   try {
-    const res = await fetch(LEAD_API_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) throw new Error('API unavailable');
-    return true;
+    const res = await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params);
+    return res.status === 200;
   } catch (err) {
-    queuePendingLead(payload);
+    console.error('EmailJS Error:', err);
     return false;
   }
 }
-
-function queuePendingLead(payload) {
-  try {
-    const current = JSON.parse(localStorage.getItem(LEAD_QUEUE_KEY) || '[]');
-    current.push(payload);
-    localStorage.setItem(LEAD_QUEUE_KEY, JSON.stringify(current));
-  } catch (err) {
-    // Ignorar errores de almacenamiento para no romper UX.
-  }
-}
-// â”€â”€ Nav scroll effect
+// --- Nav scroll effect
 const nav = document.getElementById('main-nav');
 window.addEventListener('scroll', () => {
   nav.classList.toggle('scrolled', window.scrollY > 20);
 });
 
-// â”€â”€ Active nav links
+// --- Active nav links
 const allSections = document.querySelectorAll('section[id], [id="metrics"], [id="cta-band"]');
 const navAs = document.querySelectorAll('.nav-links a');
 window.addEventListener('scroll', () => {
@@ -145,7 +126,7 @@ window.addEventListener('scroll', () => {
   });
 }, { passive: true });
 
-// â”€â”€ Smooth scroll
+// --- Smooth scroll
 document.querySelectorAll('a[href^="#"]').forEach(a => {
   a.addEventListener('click', e => {
     const tgt = document.querySelector(a.getAttribute('href'));
@@ -153,15 +134,15 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
   });
 });
 
-// â”€â”€ Reveal on scroll
+// --- Reveal on scroll
 const ro = new IntersectionObserver((entries) => {
   entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
 }, { threshold: 0.07 });
 document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.observe(el));
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// â•â•  CARRUSEL DE PORTAFOLIO â€” Responsivo + Touch
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ===========================================================================
+//    CARRUSEL DE PORTAFOLIO - Responsivo + Touch
+// ===========================================================================
 
 (function initCarousel() {
   const track = document.getElementById('carousel-track');
@@ -178,13 +159,13 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
   let autoPlayTimer = null;
   const AUTO_PLAY_INTERVAL = 5000;
 
-  // â”€â”€ Calcular ancho de cada slide segÃºn CSS flex-basis
+  // --- Calcular ancho de cada slide según CSS flex-basis
   function calcSlideWidth() {
     if (!slides[0]) return;
     slideWidth = slides[0].offsetWidth + parseInt(getComputedStyle(slides[0]).paddingRight || 0);
   }
 
-  // â”€â”€ Mover al slide indicado
+  // --- Mover al slide indicado
   function goToSlide(index, smooth = true) {
     if (index < 0) index = totalSlides - 1;
     if (index >= totalSlides) index = 0;
@@ -199,7 +180,7 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
     updateUI();
   }
 
-  // â”€â”€ Actualizar contador, dots, estado de flechas
+  // --- Actualizar contador, dots, estado de flechas
   function updateUI() {
     // Contador
     const display = String(currentIndex + 1).padStart(2, '0');
@@ -211,7 +192,7 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
     });
   }
 
-  // â”€â”€ Generar dots
+  // --- Generar dots
   function buildDots() {
     dotsContainer.innerHTML = '';
     for (let i = 0; i < totalSlides; i++) {
@@ -226,7 +207,7 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
     }
   }
 
-  // â”€â”€ Auto-play
+  // --- Auto-play
   function startAutoPlay() {
     stopAutoPlay();
     autoPlayTimer = setInterval(() => {
@@ -246,7 +227,7 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
     startAutoPlay();
   }
 
-  // â”€â”€ Flechas
+  // --- Flechas
   prevBtn.addEventListener('click', () => {
     goToSlide(currentIndex - 1);
     resetAutoPlay();
@@ -257,9 +238,9 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
     resetAutoPlay();
   });
 
-  // â”€â”€ Soporte teclado
+  // --- Soporte teclado
   document.addEventListener('keydown', (e) => {
-    // Solo si la secciÃ³n de portafolio estÃ¡ visible en el viewport
+    // Solo si la sección de portafolio está visible en el viewport
     const section = document.getElementById('portafolio');
     const rect = section.getBoundingClientRect();
     if (rect.top > window.innerHeight || rect.bottom < 0) return;
@@ -268,7 +249,7 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
     if (e.key === 'ArrowRight') { goToSlide(currentIndex + 1); resetAutoPlay(); }
   });
 
-  // â”€â”€ Drag / Touch (swipe para mobile y desktop)
+  // --- Drag / Touch (swipe para mobile y desktop)
   let isDragging = false;
   let startX = 0;
   let currentTranslate = 0;
@@ -300,7 +281,7 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
     track.classList.remove('is-dragging');
 
     const movedBy = currentTranslate - prevTranslate;
-    // Si arrastrÃ³ mÃ¡s del 20% del ancho del slide, cambiar
+    // Si arrastró más del 20% del ancho del slide, cambiar
     const threshold = slideWidth * 0.2;
 
     if (movedBy < -threshold) {
@@ -326,14 +307,14 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
   viewport.addEventListener('touchmove', dragMove, { passive: true });
   viewport.addEventListener('touchend', dragEnd);
 
-  // Prevenir drag de imÃ¡genes
+  // Prevenir drag de imágenes
   track.addEventListener('dragstart', e => e.preventDefault());
 
-  // â”€â”€ Pausar auto-play cuando el mouse estÃ¡ encima
+  // --- Pausar auto-play cuando el mouse está encima
   viewport.addEventListener('mouseenter', stopAutoPlay);
   viewport.addEventListener('mouseleave', startAutoPlay);
 
-  // â”€â”€ Recalcular en resize
+  // --- Recalcular en resize
   let resizeTimer;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
@@ -342,7 +323,7 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
     }, 150);
   });
 
-  // â”€â”€ Inicializar
+  // --- Inicializar
   buildDots();
   calcSlideWidth();
   goToSlide(0, false);
@@ -350,9 +331,9 @@ document.querySelectorAll('.reveal, .reveal-l, .reveal-r').forEach(el => ro.obse
 })();
 
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// â•â•  RODGAR AI CHATBOT â€” Flujo conversacional con recopilaciÃ³n
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ===========================================================================
+//    RODGAR AI CHATBOT - Flujo conversacional con recopilación
+// ===========================================================================
 
 const chatbotLauncher = document.getElementById('chatbot-launcher');
 const chatbotWindow = document.getElementById('chatbot-window');
@@ -362,12 +343,12 @@ const chatForm = document.getElementById('chat-form');
 const chatCloseBtn = document.getElementById('chat-close');
 const chatbotBadge = document.getElementById('chatbot-badge');
 
-// â”€â”€ BotÃ³n cerrar chatbot
+// --- Botón cerrar chatbot
 chatCloseBtn.addEventListener('click', () => {
   chatbotWindow.classList.remove('active');
 });
 
-// â”€â”€ Datos del lead que se van recopilando en la conversaciÃ³n
+// --- Datos del lead que se van recopilando en la conversación
 let leadData = {
   nombre: null,
   telefono: null,
@@ -377,18 +358,18 @@ let leadData = {
   timestamp: null
 };
 
-// â”€â”€ Estado actual del flujo conversacional
+// --- Estado actual del flujo conversacional
 // Estados posibles: 'idle' | 'asking_name' | 'asking_phone' | 'asking_email'
 //                 | 'asking_project_type' | 'asking_description' | 'completed'
 let chatState = 'idle';
 
-// â”€â”€ Flag para saber si ya se abriÃ³ antes
+// --- Flag para saber si ya se abrió antes
 let firstOpen = true;
 
-// â”€â”€ Base de conocimiento para preguntas frecuentes
+// --- Base de conocimiento para preguntas frecuentes
 const KNOWLEDGE_BASE = [];
 
-// â”€â”€ Abrir/cerrar chatbot
+// --- Abrir/cerrar chatbot
 chatbotLauncher.addEventListener('click', () => {
   chatbotWindow.classList.toggle('active');
   if (chatbotBadge) chatbotBadge.style.display = 'none';
@@ -406,7 +387,7 @@ chatbotLauncher.addEventListener('click', () => {
   }
 });
 
-// â”€â”€ Enviar mensaje del usuario
+// --- Enviar mensaje del usuario
 chatForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const text = chatInput.value.trim();
@@ -458,49 +439,49 @@ function startLeadFlow() {
   };
 
   chatState = 'asking_name';
-  addBotMessage('Vamos a registrar tu solicitud. ¿Cual es tu nombre completo?');
+  addBotMessage('Vamos a registrar tu solicitud. ¿Cuál es tu nombre completo?');
   chatInput.placeholder = 'Escribe tu nombre...';
 }
 
 function handleNameInput(text) {
   if (text.length < 2) {
-    addBotMessage('Por favor ingresa un nombre valido.');
+    addBotMessage('Por favor ingresa un nombre válido.');
     return;
   }
   leadData.nombre = text;
   chatState = 'asking_phone';
-  addBotMessage(`Gracias, ${text}. ¿Cual es tu telefono de contacto?`);
+  addBotMessage(`Gracias, ${text}. ¿Cuál es tu teléfono de contacto?`);
   chatInput.placeholder = 'Ej: 314 123 4567';
 }
 
 function handlePhoneInput(text) {
   const digits = text.replace(/\D/g, '');
   if (digits.length < 7) {
-    addBotMessage('Por favor ingresa un telefono valido.');
+    addBotMessage('Por favor ingresa un teléfono válido.');
     return;
   }
   leadData.telefono = text;
   chatState = 'asking_email';
-  addBotMessage('Perfecto. ¿Cual es tu correo electronico?');
+  addBotMessage('Perfecto. ¿Cuál es tu correo electrónico?');
   chatInput.placeholder = 'Ej: nombre@correo.com';
 }
 
 function handleEmailInput(text) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(text)) {
-    addBotMessage('El correo no parece valido. Intenta de nuevo.');
+    addBotMessage('El correo no parece válido. Intenta de nuevo.');
     return;
   }
   leadData.email = text;
   chatState = 'asking_project_type';
-  addBotMessage('¿Que tipo de proyecto tienes en mente?');
+  addBotMessage('¿Qué tipo de proyecto tienes en mente?');
   setTimeout(() => {
     showQuickReplies([
-      { label: 'Casa habitacion', action: 'type_casa' },
+      { label: 'Casa habitación', action: 'type_casa' },
       { label: 'Comercial / Oficinas', action: 'type_comercial' },
       { label: 'Nave industrial', action: 'type_industrial' },
-      { label: 'Remodelacion', action: 'type_remodelacion' },
-      { label: 'Solo diseno / planos', action: 'type_diseno' },
+      { label: 'Remodelación', action: 'type_remodelacion' },
+      { label: 'Solo diseño / planos', action: 'type_diseno' },
       { label: 'Otro', action: 'type_otro' }
     ]);
   }, 250);
@@ -519,33 +500,31 @@ function handleDescriptionInput(text) {
   chatState = 'completed';
   chatInput.placeholder = 'Escribe tu mensaje...';
 
-  const payload = {
-    formType: 'chatbot',
-    source: 'web_chatbot',
-    submittedAt: new Date().toISOString(),
-    data: {
-      nombre: safeValue(leadData.nombre),
-      telefono: safeValue(leadData.telefono),
-      correo: safeValue(leadData.email),
-      tipoProyecto: safeValue(leadData.tipoProyecto),
-      descripcionProyecto: safeValue(leadData.descripcion)
-    }
+  const templateParams = {
+    from_name: safeValue(leadData.nombre),
+    from_email: safeValue(leadData.email),
+    telefono: safeValue(leadData.telefono),
+    form_type: 'LEAD DE CHATBOT',
+    project_type: safeValue(leadData.tipoProyecto),
+    budget: 'Por definir',
+    message: safeValue(leadData.descripcion),
+    source: 'Asistente Virtual (Chatbot)'
   };
 
   addBotMessage(`Registro completado:\n\n` +
     `<div class="chat-summary">` +
     `<div class="chat-summary-row"><span class="chat-summary-label">Nombre:</span> ${safeValue(leadData.nombre)}</div>` +
-    `<div class="chat-summary-row"><span class="chat-summary-label">Telefono:</span> ${safeValue(leadData.telefono)}</div>` +
+    `<div class="chat-summary-row"><span class="chat-summary-label">Teléfono:</span> ${safeValue(leadData.telefono)}</div>` +
     `<div class="chat-summary-row"><span class="chat-summary-label">Correo:</span> ${safeValue(leadData.email)}</div>` +
     `<div class="chat-summary-row"><span class="chat-summary-label">Proyecto:</span> ${safeValue(leadData.tipoProyecto)}</div>` +
     `<div class="chat-summary-row"><span class="chat-summary-label">Detalle:</span> ${safeValue(leadData.descripcion)}</div>` +
     `</div>`);
 
-  submitLeadToApi(payload).then((ok) => {
+  sendEmailJS(templateParams).then((ok) => {
     if (ok) {
       addBotMessage('Tus datos fueron enviados para seguimiento.');
     } else {
-      addBotMessage('Tus datos quedaron guardados en espera de sincronizacion.');
+      addBotMessage('Hubo un retraso en el envío, pero nuestro equipo revisará tu solicitud pronto.');
     }
     setTimeout(() => {
       showQuickReplies([
@@ -571,8 +550,8 @@ function handleQuickReply(action) {
       setTimeout(() => startLeadFlow(), 250);
       break;
     case 'type_casa':
-      addUserMessage('Casa habitacion');
-      handleProjectTypeInput('Casa habitacion');
+      addUserMessage('Casa habitación');
+      handleProjectTypeInput('Casa habitación');
       break;
     case 'type_comercial':
       addUserMessage('Comercial / Oficinas');
@@ -583,12 +562,12 @@ function handleQuickReply(action) {
       handleProjectTypeInput('Nave industrial');
       break;
     case 'type_remodelacion':
-      addUserMessage('Remodelacion');
-      handleProjectTypeInput('Remodelacion');
+      addUserMessage('Remodelación');
+      handleProjectTypeInput('Remodelación');
       break;
     case 'type_diseno':
-      addUserMessage('Solo diseno / planos');
-      handleProjectTypeInput('Solo diseno / planos');
+      addUserMessage('Solo diseño / planos');
+      handleProjectTypeInput('Solo diseño / planos');
       break;
     case 'type_otro':
       addUserMessage('Otro');
@@ -609,7 +588,7 @@ function addBotMessage(html) {
   div.innerHTML = html;
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
-  // AnimaciÃ³n de entrada
+  // Animación de entrada
   requestAnimationFrame(() => {
     div.classList.add('in');
   });
@@ -627,7 +606,7 @@ function addUserMessage(text) {
   });
 }
 
-// Mostrar botones de respuesta rÃ¡pida
+// Mostrar botones de respuesta rápida
 function showQuickReplies(options) {
   const container = document.createElement('div');
   container.className = 'chat-quick-replies';
@@ -643,19 +622,19 @@ function showQuickReplies(options) {
   chatMessages.appendChild(container);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 
-  // AnimaciÃ³n escalonada de entrada
+  // Animación escalonada de entrada
   requestAnimationFrame(() => {
     container.classList.add('in');
   });
 }
 
-// FunciÃ³n auxiliar para detectar keywords
+// Función auxiliar para detectar keywords
 function matchesAny(text, keywords) {
   return keywords.some(kw => text.includes(kw));
 }
 
 
-// â”€â”€ Hamburger Menu Logic
+// --- Hamburger Menu Logic
 const hamburger = document.getElementById('hamburger');
 const navLinks = document.querySelector('.nav-links');
 const navItems = document.querySelectorAll('.nav-links a');
