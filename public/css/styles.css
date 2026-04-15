@@ -32,27 +32,6 @@
       /* Typography */
       --font-display: 'Manrope', sans-serif;
       --font-body: 'Work Sans', sans-serif;
-
-      /* Shadows */
-      --shadow-float: 0 16px 48px rgba(26, 28, 30, 0.06);
-      --shadow-card: 0 4px 24px rgba(26, 28, 30, 0.04);
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      font-family: var(--font-body);
-      background: var(--surface);
-      color: var(--on-surface);
-      overflow-x: hidden;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    /* ─── UTILITIES ─── */
-    .gold {
-      color: var(--gold);
     }
 
     .label-tag {
