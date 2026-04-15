@@ -17,8 +17,6 @@ function showToast(title, msg) {
   setTimeout(() => t.classList.remove('show'), 5500);
 }
 
-
-
 const EMAILJS_SERVICE_ID = 'service_o0d5nrr';
 const EMAILJS_TEMPLATE_ID = 'template_i4923gv';
 
