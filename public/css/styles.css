@@ -453,12 +453,28 @@
     }
 
     .hero-stats-row {
-      display: flex;
-      gap: 48px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 32px;
       margin-top: 72px;
-      flex-wrap: wrap;
       border-top: 1px solid rgba(255, 255, 255, 0.07);
       padding-top: 48px;
+      max-width: 1200px;
+    }
+
+    @media (max-width: 1024px) {
+      .hero-stats-row {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 32px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .hero-stats-row {
+        grid-template-columns: 1fr;
+        gap: 28px;
+        text-align: center;
+      }
     }
 
     .hero-stat {
@@ -467,10 +483,18 @@
 
     .hero-stat-n {
       font-family: var(--font-display);
-      font-size: 2.2rem;
+      font-size: 2.8rem;
       font-weight: 800;
       color: var(--gold);
       line-height: 1;
+      display: flex;
+      align-items: baseline;
+    }
+
+    .hero-stat-n span {
+      font-size: 1.5rem;
+      color: var(--gold-dim);
+      margin-left: 2px;
     }
 
     .hero-stat-l {
@@ -479,7 +503,7 @@
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: rgba(255, 255, 255, 0.35);
-      margin-top: 6px;
+      margin-top: 10px;
     }
 
     /* Hero right — image panel */
@@ -1040,6 +1064,14 @@
       flex-wrap: wrap;
     }
 
+    .carousel-cta .btn {
+      white-space: normal;
+      text-align: center;
+      max-width: 320px;
+      line-height: 1.4;
+      justify-content: center;
+    }
+
     /* ── RESPONSIVE ── */
 
     /* Tablet */
@@ -1063,11 +1095,17 @@
         padding: 60px 20px 40px;
       }
 
-      .portafolio-header {
+      .portafolio-header,
+      .test-header {
         flex-direction: column;
         align-items: flex-start;
         gap: 16px;
         margin-bottom: 28px;
+      }
+
+      .test-header .btn {
+        max-width: 100%;
+        width: 100%;
       }
 
       .carousel-nav-desktop {
@@ -1130,9 +1168,18 @@
 
       .carousel-cta {
         flex-direction: column;
-        align-items: center;
+        align-items: stretch;
         gap: 12px;
         margin-top: 28px;
+        width: 100%;
+        max-width: 400px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .carousel-cta .btn {
+        max-width: 100%;
+        width: 100%;
       }
     }
 
@@ -1714,6 +1761,15 @@
       justify-content: space-between;
       align-items: flex-end;
       margin-bottom: 56px;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .test-header .btn {
+      white-space: normal;
+      text-align: center;
+      max-width: 300px;
+      line-height: 1.4;
     }
 
     .test-grid {
@@ -2724,5 +2780,83 @@
     @media (max-width: 768px) {
       .nav-social-mobile {
         display: flex;
+      }
+    }
+
+    /* ─── SECCIÓN DE MÉTRICAS (Banda de Éxito) ─── */
+    #metrics {
+      background: var(--primary);
+      padding: 60px 0;
+      border-bottom: 2px solid var(--gold-dim);
+    }
+
+    .metrics-inner {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 32px;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 40px;
+    }
+
+    .metric-item {
+      text-align: center;
+      padding: 20px;
+      transition: transform 0.3s ease;
+    }
+
+    .metric-item:hover {
+      transform: translateY(-5px);
+    }
+
+    .metric-n {
+      font-family: var(--font-display);
+      font-size: 2.8rem;
+      font-weight: 800;
+      color: var(--gold);
+      line-height: 1;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: center;
+      align-items: baseline;
+    }
+
+    .metric-n span {
+      font-size: 1.5rem;
+      color: var(--gold-dim);
+      margin-left: 2px;
+    }
+
+    .metric-l {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.5);
+      line-height: 1.4;
+    }
+
+    /* Responsividad de Métricas (Sincronizada con Hero) */
+    @media (max-width: 1024px) {
+      .metrics-inner {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 32px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      #metrics {
+        padding: 40px 0;
+      }
+      .metrics-inner {
+        grid-template-columns: 1fr;
+        gap: 28px;
+      }
+      .metric-item {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        padding-bottom: 20px;
+      }
+      .metric-item:last-child {
+        border-bottom: none;
       }
     }
