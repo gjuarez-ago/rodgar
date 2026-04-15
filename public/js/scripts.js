@@ -17,17 +17,9 @@ function showToast(title, msg) {
   setTimeout(() => t.classList.remove('show'), 5500);
 }
 
-// --- EmailJS Configuration
-function initEmailJS() {
-  if (typeof window.emailjs !== "undefined") {
-    window.emailjs.init({ publicKey: "eGWzwCVi4qWYy9mKa" });
-  } else {
-    setTimeout(initEmailJS, 300);
-  }
-}
-initEmailJS();
 
-const EMAILJS_SERVICE_ID = 'service_o0d5nrrmi';
+
+const EMAILJS_SERVICE_ID = 'service_o0d5nrr';
 const EMAILJS_TEMPLATE_ID = 'template_i4923gv';
 
 async function handleCot(e) {
@@ -99,19 +91,15 @@ function safeValue(v) {
 }
 
 async function sendEmailJS(params) {
-  // Verificar si la librería está disponible de forma segura en window
-  const lib = window.emailjs || null;
-
-  if (!lib) {
-    console.warn('EmailJS no está disponible en este entorno. (Puede ser por el protocolo file:// o bloqueo de red).');
-    return false;
-  }
-
   try {
-    const res = await lib.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params);
-    return res.status === 200;
+    const res = await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params);
+    if (res.status === 200) {
+      console.log('¡Correo enviado con éxito!', res.text);
+      return true;
+    }
+    return false;
   } catch (err) {
-    console.error('Error en EmailJS:', err);
+    console.error('Error al enviar el correo con EmailJS:', err);
     return false;
   }
 }
